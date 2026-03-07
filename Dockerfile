@@ -1,20 +1,20 @@
 # syntax=docker/dockerfile:1.7
 
-# 构建阶段
-FROM node:20-slim AS builder
+# 构建阶段（无 native 依赖，用 Alpine 减小体积）
+FROM node:20-alpine AS builder
 WORKDIR /app
 
 # 复制所有文件
 COPY . .
 
-# 安装依赖（使用 npm，避免 pnpm 问题）
+# 安装依赖
 RUN npm install --prefer-offline --no-audit --no-fund
 
 # 构建应用
 RUN NITRO_PRESET=node-server npm run build
 
-# 运行阶段：最小化 Debian 镜像
-FROM node:20-slim AS runner
+# 运行阶段：Alpine 仅 ~50MB
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 # 设置环境变量
