@@ -28,6 +28,32 @@ class SuccessPlugin extends BaseAsyncPlugin {
   }
 }
 
+class EmptyPlugin extends BaseAsyncPlugin {
+  async search(): Promise<SearchResult[]> {
+    return [];
+  }
+}
+
+class FallbackPlugin extends BaseAsyncPlugin {
+  async search(keyword: string): Promise<SearchResult[]> {
+    if (keyword === "movie") {
+      return [
+        {
+          message_id: "fallback-1",
+          unique_id: "fallback-1",
+          channel: "fallback-plugin",
+          datetime: new Date("2026-01-01T00:00:00.000Z").toISOString(),
+          title: "fallback result",
+          content: "fallback result",
+          links: [{ type: "quark", url: "https://example.com/fallback", password: "" }],
+        },
+      ];
+    }
+
+    return [];
+  }
+}
+
 function createService(plugin: BaseAsyncPlugin) {
   const manager = new PluginManager();
   manager.registerPlugin(plugin);
@@ -117,5 +143,52 @@ describe("SearchService warnings", () => {
 
     expect(result.response.total).toBe(1);
     expect(result.warnings).toEqual([]);
+  });
+
+  it("does not mark a plugin unhealthy when it simply returns no results", async () => {
+    const service = createService(new EmptyPlugin("empty", 1));
+
+    for (let i = 0; i < 6; i++) {
+      const result = await service.searchWithWarnings(
+        `miss-${i}`,
+        [],
+        1,
+        false,
+        "merged_by_type",
+        "plugin",
+        ["empty"],
+        undefined,
+        {}
+      );
+
+      expect(result.response.total).toBe(0);
+    }
+
+    const status = service.getPluginHealthStatus().find((item) => item.name === "empty");
+    expect(status?.isHealthy).toBe(true);
+    expect(status?.failureCount).toBe(0);
+  });
+
+  it("does not count a successful fallback search as a plugin failure", async () => {
+    const service = createService(new FallbackPlugin("fallback", 1));
+
+    const result = await service.searchWithWarnings(
+      "a",
+      [],
+      1,
+      false,
+      "merged_by_type",
+      "plugin",
+      ["fallback"],
+      undefined,
+      {}
+    );
+
+    expect(result.response.total).toBe(1);
+
+    const status = service.getPluginHealthStatus().find((item) => item.name === "fallback");
+    expect(status?.isHealthy).toBe(true);
+    expect(status?.failureCount).toBe(0);
+    expect(status?.successCount).toBe(1);
   });
 });

@@ -301,13 +301,6 @@ export class SearchService {
         []
       );
 
-      const responseTime = Date.now() - startTime;
-      if (results && results.length > 0) {
-        this.healthChecker.recordSuccess(pluginName, responseTime);
-      } else {
-        this.healthChecker.recordFailure(pluginName);
-      }
-
       if ((!results || results.length === 0) && (keyword || "").trim().length <= 1) {
         const fallbacks = ["电影", "movie", "1080p"];
         for (const fb of fallbacks) {
@@ -322,6 +315,9 @@ export class SearchService {
           }
         }
       }
+
+      const responseTime = Date.now() - startTime;
+      this.healthChecker.recordSuccess(pluginName, responseTime);
 
       return results || [];
     });
